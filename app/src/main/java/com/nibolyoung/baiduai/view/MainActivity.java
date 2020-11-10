@@ -1,11 +1,11 @@
-package com.nibolyoung.baiduai;
+package com.nibolyoung.baiduai.view;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 
-import com.nibolyoung.baiduai.config.Config;
+import com.nibolyoung.baiduai.R;
 
-public class MainActivity extends AppCompatActivity implements Config {
+public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
