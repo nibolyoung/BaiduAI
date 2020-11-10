@@ -1,7 +1,8 @@
 package com.nibolyoung.baiduai.view;
 
-import android.app.Fragment;
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -26,16 +27,13 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
-import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.Range;
 import android.util.Size;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -55,11 +53,11 @@ import java.util.List;
 
 /**
  * Created by: nibolyoung on 2020/11/10.
- * Description: Camera2 Fragment
+ * Description: TakePhoto Activity
  */
 
-public class Camera2Fragment extends Fragment {
-    private static final String TAG = "Camera2Fragment";
+public class TakePhotoActivity extends Activity {
+    private static final String TAG = "TakePhotoActivity";
     private static final int SETIMAGE = 1;
     private static final int MOVE_FOCK = 2;
     /**
@@ -71,6 +69,10 @@ public class Camera2Fragment extends Fragment {
      * Max preview height that is guaranteed by Camera2 API
      */
     private static final int MAX_PREVIEW_HEIGHT = 1080;
+
+    private static File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
+            .getAbsoluteFile();
+    public static String filePath=dir.getAbsolutePath()+"/tempImg.jpg";
 
     TextureView mTextureView;
     ImageView mThumbnail;
@@ -139,6 +141,7 @@ public class Camera2Fragment extends Fragment {
     private Size mPreViewSize;
     private Rect maxZoomrect;
     private int maxRealRadio;
+    private Integer mSensorOrientation;
     //预览图显示控件的监听器，可以监听这个surface的状态
     private TextureView.SurfaceTextureListener mSurfacetextlistener = new TextureView
             .SurfaceTextureListener() {
@@ -147,7 +150,7 @@ public class Camera2Fragment extends Fragment {
             HandlerThread thread = new HandlerThread("Ceamera3");
             thread.start();
             mHandler = new Handler(thread.getLooper());
-            CameraManager manager = (CameraManager) getActivity().getSystemService(Context
+            CameraManager manager = (CameraManager) TakePhotoActivity.this.getSystemService(Context
                     .CAMERA_SERVICE);
             String cameraid = CameraCharacteristics.LENS_FACING_FRONT + "";
             try {
@@ -179,9 +182,9 @@ public class Camera2Fragment extends Fragment {
         }
 
         private void choosePreSize(int i, int i1, StreamConfigurationMap map, Size largest) {
-            int displayRotation = getActivity().getWindowManager().getDefaultDisplay().getRotation();
+            int displayRotation = TakePhotoActivity.this.getWindowManager().getDefaultDisplay().getRotation();
             //noinspection ConstantConditions
-            Integer mSensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
+            mSensorOrientation = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
             boolean swappedDimensions = false;
             switch (displayRotation) {
                 case Surface.ROTATION_0:
@@ -200,7 +203,7 @@ public class Camera2Fragment extends Fragment {
                     Log.e(TAG, "Display rotation is invalid: " + displayRotation);
             }
             android.graphics.Point displaySize = new android.graphics.Point();
-            getActivity().getWindowManager().getDefaultDisplay().getSize(displaySize);
+            TakePhotoActivity.this.getWindowManager().getDefaultDisplay().getSize(displaySize);
             int rotatedPreviewWidth = i;
             int rotatedPreviewHeight = i1;
             int maxPreviewWidth = displaySize.x;
@@ -274,6 +277,17 @@ public class Camera2Fragment extends Fragment {
         }
     };
 
+    private View.OnClickListener onClickListener=new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            try {
+                mCameraSession.setRepeatingRequest(initDngBuilder().build(), null, mHandler);
+            } catch (CameraAccessException e) {
+                Toast.makeText(TakePhotoActivity.this, "需要相机权限", Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
     private View.OnTouchListener onTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -282,14 +296,14 @@ public class Camera2Fragment extends Fragment {
                     try {
                         mCameraSession.setRepeatingRequest(initDngBuilder().build(), null, mHandler);
                     } catch (CameraAccessException e) {
-                        Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TakePhotoActivity.this, "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
                     }
                     break;
                 case MotionEvent.ACTION_UP:
                     try {
                         updateCameraPreviewSession();
                     } catch (CameraAccessException e) {
-                        Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TakePhotoActivity.this, "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
                     }
                     break;
             }
@@ -324,15 +338,15 @@ public class Camera2Fragment extends Fragment {
             captureBuilder.set(CaptureRequest.SENSOR_SENSITIVITY, (10000 - 100) / 2);//设置 ISO，感光度
             captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, 90);
             //设置每秒30帧
-            CameraManager cameraManager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
+            CameraManager cameraManager = (CameraManager)TakePhotoActivity.this.getSystemService(Context.CAMERA_SERVICE);
             String cameraid = CameraCharacteristics.LENS_FACING_FRONT + "";
             CameraCharacteristics cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraid);
             Range<Integer> fps[] = cameraCharacteristics.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
             captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fps[fps.length - 1]);
         } catch (CameraAccessException e) {
-            Toast.makeText(getActivity(), "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
+            Toast.makeText(TakePhotoActivity.this, "请求相机权限被拒绝", Toast.LENGTH_SHORT).show();
         } catch (NullPointerException e) {
-            Toast.makeText(getActivity(), "打开相机失败", Toast.LENGTH_SHORT).show();
+            Toast.makeText(TakePhotoActivity.this, "打开相机失败", Toast.LENGTH_SHORT).show();
         }
         return captureBuilder;
     }
@@ -360,13 +374,13 @@ public class Camera2Fragment extends Fragment {
     };
     private View.OnTouchListener textTureOntuchListener = new View.OnTouchListener() {
         //时时当前的zoom
-        public double zoom;
+        private double zoom;
         // 0<缩放比<mCameraCharacteristics.get(CameraCharacteristics
         // .SCALER_AVAILABLE_MAX_DIGITAL_ZOOM).intValue();
         //上次缩放前的zoom
-        public double lastzoom;
+        private double lastzoom;
         //两个手刚一起碰到手机屏幕的距离
-        public double lenth;
+        private double lenth;
         int count;
 
         @Override
@@ -421,16 +435,28 @@ public class Camera2Fragment extends Fragment {
     //相机缩放相关
     private Rect picRect;
 
-
-    @Nullable
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle
-            savedInstanceState) {
-        View v = inflater.inflate(R.layout.fragment_camera2, null);
-        findview(v);
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.fragment_camera2);
+
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        mTextureView = (TextureView)findViewById(R.id.tv_textview);
+        mButton = (Button) findViewById(R.id.btn_takepic);
+        mThumbnail = (ImageView) findViewById(R.id.iv_Thumbnail);
+        mThumbnail.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+            }
+        });
+
         mUIHandler = new Handler(new InnerCallBack());
         //初始化拍照的声音
-        ringtone = RingtoneManager.getRingtone(getActivity(), Uri.parse
+        ringtone = RingtoneManager.getRingtone(TakePhotoActivity.this, Uri.parse
                 ("file:///system/media/audio/ui/camera_click.ogg"));
         AudioAttributes.Builder attr = new AudioAttributes.Builder();
         attr.setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
@@ -438,28 +464,15 @@ public class Camera2Fragment extends Fragment {
         //初始化相机布局
         mTextureView.setSurfaceTextureListener(mSurfacetextlistener);
         mTextureView.setOnTouchListener(textTureOntuchListener);
-        return v;
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onDestroy() {
+        super.onDestroy();
         if (mCameraSession != null) {
             mCameraSession.getDevice().close();
             mCameraSession.close();
         }
-    }
-
-    private void findview(View v) {
-        mTextureView = v.findViewById(R.id.tv_textview);
-        mButton = v.findViewById(R.id.btn_takepic);
-        mThumbnail = v.findViewById(R.id.iv_Thumbnail);
-        mThumbnail.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-            }
-        });
     }
 
     /**
@@ -473,18 +486,14 @@ public class Camera2Fragment extends Fragment {
     private class ImageSaver implements Runnable {
         Image reader;
 
-        private ImageSaver(Image reader) {
+        public ImageSaver(Image reader) {
             this.reader = reader;
         }
 
         @Override
         public void run() {
             Log.d(TAG, "正在保存图片");
-            File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM)
-                    .getAbsoluteFile();
-            if (!dir.exists())  dir.mkdirs();
-            //File file = new File(dir, System.currentTimeMillis() + "/.jpg");
-            File file = new File(dir.getAbsolutePath()+"/tempImg.jpg");
+            File file = new File(filePath);
             if(file.exists())  file.delete();
             Log.e(TAG,"file address: "+file.getAbsolutePath());
             FileOutputStream outputStream = null;
@@ -498,9 +507,16 @@ public class Camera2Fragment extends Fragment {
                 Bitmap bm = BitmapFactory.decodeByteArray(buff, 0, buff.length, ontain);
                 Message.obtain(mUIHandler, SETIMAGE, bm).sendToTarget();
                 outputStream.write(buff);
+                Log.d(TAG, "保存图片完成");
 
-                Log.i(TAG, "save picture successed");
-            } catch (Exception e) {
+//                Intent intent=new Intent();
+//                intent.putExtra("result",file);
+//                TakePhotoActivity.this.setResult(0);
+//                TakePhotoActivity.this.finish();
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
                 e.printStackTrace();
             } finally {
                 if (reader != null) {
@@ -513,6 +529,10 @@ public class Camera2Fragment extends Fragment {
                         e.printStackTrace();
                     }
                 }
+                Intent intent=new Intent();
+                intent.putExtra("result",filePath);
+                TakePhotoActivity.this.setResult(0,intent);
+                TakePhotoActivity.this.finish();
             }
         }
     }
